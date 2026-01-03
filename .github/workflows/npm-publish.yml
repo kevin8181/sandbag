@@ -1,9 +1,36 @@
 name: NPM publish
 on:
-  workflow_call:
+  pull_request:
+    types: [ closed ]
+    branches: ['develop']
+
 jobs:
-  build:
+  version-bump:
+    name: 'Bump version and commit package.json'
+    runs-on: ubuntu-latest
+    environment: production
+    if: github.event.pull_request.merged == true
+    steps:
+      - name: 'Checkout source code'
+        uses: 'actions/checkout@v4'
+        with:
+          token: ${{ secrets.BOT_USER_TOKEN }}
+          ref: 'develop'
+
+      - name: 'Automated Version Bump'
+        id: version-bump
+        uses: 'phips28/gh-action-bump-version@master'
+        env:
+          GITHUB_TOKEN: ${{ secrets.BOT_USER_TOKEN }}
+        with:
+          patch-wording: '[npm release]'
+          tag-prefix: 'v'
+          target-branch: 'develop'
+
+  npm-publish:
     name: 'npm publish'
+    needs: version-bump
+    if: startsWith(github.event.pull_request.title, '[npm publish]')
     runs-on: ubuntu-latest
     environment: production
     permissions:
@@ -16,7 +43,7 @@ jobs:
           ref: develop
 
       - name: 'Show current version'
-        run: grep  '"version"' package.json
+        run: grep '"version"' package.json
 
       - name: Setup Node.js environment
         uses: actions/setup-node@v4
